@@ -1,0 +1,196 @@
+syntax = "proto3";
+
+package trident.ci.v1;
+option go_package = "v1";
+
+message Pipeline {
+  string uid = 1;
+  string alias = 2;
+  string title = 3;
+  repeated Flow flows = 4;
+  map<string, string> params = 5;
+}
+
+enum FlowType {
+  SCM = 0;
+  Shell = 1;
+  DockerBuild = 2;
+  Lua = 3;
+}
+
+message Flow {
+  string uid = 1;
+  FlowType type = 2;
+  ScmCfg scmCfg = 3;
+  ShellCfg shellCfg = 4;
+  DockerBuildCfg dockerBuildCfg = 5;
+  LuaCfg luaCfg = 6;
+  bool noEnvRender = 7;
+}
+
+enum VCSType {
+  Git = 0;
+  SVN = 1;
+}
+
+// 凭证类型
+enum CreditType {
+  NoCredit = 0;
+  // 用户名+密码
+  TypeUserPwd = 1;
+  // ssh私钥
+  TypeSSHPrivateKey = 2;
+  // gitlab api token
+  TypeGitlabToken = 3;
+  // github access token
+  TypeGithubToken = 4;
+}
+
+// 凭证模型
+message Credit {
+  // 凭证类型
+  CreditType type = 1;
+  // 用户名
+  string username = 2;
+  // 密码,当type=0或type=1（作为私钥的passphrase）时有效
+  string password = 3;
+  // ssh私钥,当type=1时有效
+  string privateKey = 4;
+  // 鉴权token,当type=2｜3时有效
+}
+
+message ScmCfg {
+  VCSType vcsType = 1;
+  string address = 2;
+  string branch = 3;
+  Credit credit = 4;
+}
+
+enum ImagePullPolicy {
+  IfNotPresent = 0;
+  Always = 1;
+  Never = 2;
+}
+
+message ShellCfg {
+  string cmd = 1;
+  bool withDocker = 2;
+  string dockerImage = 3;
+  ImagePullPolicy imagePullPolicy = 4;
+}
+
+message DockerBuildCfg {
+  string baseImage = 1;
+  string targetImage = 2;
+  string dockerfile = 3;
+  bool pushAfterBuild = 4;
+}
+
+message LuaCfg {
+  string script = 1;
+  bool exitWhenErrorOccur = 2;
+}
+
+message CurlCfg {
+  enum RequestType {
+    GET = 0;
+    POST = 1;
+    PUT = 2;
+    DELETE = 3;
+  }
+  enum ContentType {
+    JSON = 0;
+    Form = 1;
+    Plain = 2;
+    Xml = 3;
+  }
+  string url = 1;
+  string postData = 2;
+  RequestType reqType = 3;
+  ContentType reqContentType = 4;
+  ContentType respContentType = 5;
+  string extraReqHeader = 6;
+  string timeout = 7;
+
+}
+
+enum ConditionConnector {
+  And = 0;
+  Or = 1;
+}
+
+message Condition {
+  enum Compare {
+    Equal = 0;
+    Less = 1;
+    More = 2;
+    Contains = 3;
+  }
+  string key = 1;
+  string target = 2;
+  Compare compare = 3;
+}
+
+enum Status {
+  Created = 0;
+  Started = 1;
+  Running = 2;
+  Succeed = 3;
+  Failed = 4;
+  Canceled = 5;
+}
+
+message FlowProgress {
+  Flow flow = 1;
+  Status status = 2;
+  int64 startTime = 3;
+  int64 finishTime = 4;
+  string failReason = 5;
+}
+
+message PipelineProgress {
+  Pipeline pipeline = 1;
+  Status status = 2;
+  int64 startTime = 3;
+  int64 createTime = 4;
+  int64 finishTime = 5;
+  string failReason = 6;
+  repeated FlowProgress flowProgresses = 7;
+  string curRunningFlowId = 8;
+  map<string, string> env = 9;
+}
+
+message BuildRequest {
+  Pipeline pipeline = 1;
+}
+
+message BuildResponse {
+  string buildId = 1;
+}
+
+message GetBuildRequest {
+  string buildId = 1;
+}
+
+message BuildDetail {
+  PipelineProgress progress = 1;
+}
+
+
+message DeleteBuildRequest {
+  string buildId = 1;
+}
+
+message StopBuildRequest {
+  string buildId = 1;
+}
+
+message EmptyResponse {
+}
+
+service Build {
+  rpc Build(BuildRequest) returns (BuildResponse);
+  rpc GetBuildResult(GetBuildRequest) returns (BuildDetail);
+  rpc DeleteBuild(DeleteBuildRequest) returns (EmptyResponse);
+  rpc StopBuild(StopBuildRequest) returns (EmptyResponse);
+}
